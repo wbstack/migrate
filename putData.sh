@@ -40,7 +40,7 @@ echo "$WIKI_DETAILS" > $NEW_WIKI_DETAILS_FILE
 WIKI_EMAIL=$(cat ./$FROM_WIKI_DOMAIN/email.txt)
 
 ######################
-## Initial setup    ## <<<<<<<<<<<<< didnt run past here
+## Initial setup    ##
 ######################
 
 # Call the job to create laravel resources & the mediawiki db (empty)
@@ -53,10 +53,12 @@ WIKI_EMAIL=$(cat ./$FROM_WIKI_DOMAIN/email.txt)
 # ##################################
 
 # # Migrate images
-LOCAL_LOGO_PATH=./$FROM_WIKI_DOMAIN/logo.png
-$CLOUD_KUBECTL cp $LOCAL_LOGO_PATH $API_POD:/tmp/$TO_WIKI_DOMAIN-logo.png
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow SetWikiLogo domain $TO_WIKI_DOMAIN /tmp/$TO_WIKI_DOMAIN-logo.png"
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-logo.png"
+#LOCAL_LOGO_PATH=./$FROM_WIKI_DOMAIN/logo.png
+#$CLOUD_KUBECTL cp $LOCAL_LOGO_PATH $API_POD:/tmp/$TO_WIKI_DOMAIN-logo.png
+#$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow SetWikiLogo domain $TO_WIKI_DOMAIN /tmp/$TO_WIKI_DOMAIN-logo.png"
+#$CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-logo.png"
+
+# TODO everything works above here!
 
 # Migrate the DB data
 
