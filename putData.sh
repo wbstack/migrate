@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 # Inputs for the script
 NEW_DOMAIN_SUFFIX="wikibase.dev"
 FROM_WIKI_DOMAIN="addshore-alpha.wiki.opencura.com"
@@ -25,7 +28,7 @@ API_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=api,app.kubernetes.i
 # Load old details from wbstack
 WIKI_DETAILS="$(cat ./$FROM_WIKI_DOMAIN/wbstack.com-details.json)"
 NEW_WIKI_DETAILS_FILE=./$FROM_WIKI_DOMAIN/$NEW_DOMAIN_SUFFIX-details.json
-WIKI_DB_PREFIX=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.wiki_db.prefix')
+WIKI_DB_PREFIX=$(cat ./$FROM_WIKI_DOMAIN/wbstack.com-details.json | jq -r '.wiki_db.prefix')
 # Alter the domain
 WIKI_DETAILS=$(echo "$WIKI_DETAILS" | jq ".domain = \"$TO_WIKI_DOMAIN\"")
 # Set basic read only setting
@@ -41,17 +44,17 @@ WIKI_EMAIL=$(cat ./$FROM_WIKI_DOMAIN/email.txt)
 ######################
 
 # Call the job to create laravel resources & the mediawiki db (empty)
-$CLOUD_KUBECTL cp $NEW_WIKI_DETAILS_FILE /tmp/$TO_WIKI_DOMAIN-details.json
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow MigrationWikiCreate $WIKI_EMAIL /tmp/$TO_WIKI_DOMAIN-details.json"
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-details.json"
+# $CLOUD_KUBECTL cp $NEW_WIKI_DETAILS_FILE $API_POD:/tmp/$TO_WIKI_DOMAIN-details.json
+# $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow MigrationWikiCreate $WIKI_EMAIL /tmp/$TO_WIKI_DOMAIN-details.json"
+# $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-details.json"
 
-##################################
-## Sending data to the new home ##
-##################################
+# ##################################
+# ## Sending data to the new home ##
+# ##################################
 
-# Migrate images
+# # Migrate images
 LOCAL_LOGO_PATH=./$FROM_WIKI_DOMAIN/logo.png
-$CLOUD_KUBECTL cp $LOCAL_LOGO_PATH /tmp/$TO_WIKI_DOMAIN-logo.png
+$CLOUD_KUBECTL cp $LOCAL_LOGO_PATH $API_POD:/tmp/$TO_WIKI_DOMAIN-logo.png
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow SetWikiLogo domain $TO_WIKI_DOMAIN /tmp/$TO_WIKI_DOMAIN-logo.png"
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-logo.png"
 
