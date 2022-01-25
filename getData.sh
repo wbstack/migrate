@@ -1,5 +1,6 @@
 WIKI_DOMAIN="addshore-alpha.wiki.opencura.com"
 
+# TODO empty the job queue before grabbing the databases!!!
 
 ####################################
 ## Migration process below in sh  ##
@@ -35,7 +36,7 @@ WIKI_EMAIL=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mys
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
 
 # Set wbstack wiki into READONLY mode
-# $WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
+$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
 
 # Grab the logos (EXTRACTION 2)
 wget -O ./$WIKI_DOMAIN/favicon.ico $WIKI_FAVICON
