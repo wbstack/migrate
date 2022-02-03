@@ -2,19 +2,14 @@
 set -e
 
 # Inputs for the script
-NEW_DOMAIN_SUFFIX="wikibase.dev"
+NEW_PLATFORM_FREE_DOMAIN_SUFFIX="wikibase.dev"
 FROM_WIKI_DOMAIN="addshore-alpha.wiki.opencura.com"
 
 
 # Hardcoded things
 OLD_DOMAIN_SUFFIX="wiki.opencura.com"
-TO_WIKI_DOMAIN=${FROM_WIKI_DOMAIN/$OLD_DOMAIN_SUFFIX/$NEW_DOMAIN_SUFFIX}
+TO_WIKI_DOMAIN=${FROM_WIKI_DOMAIN/$OLD_DOMAIN_SUFFIX/$NEW_PLATFORM_FREE_DOMAIN_SUFFIX}
 
-# Break for now on NON default wiki domain suffix
-if [[ "$FROM_WIKI_DOMAIN" == "$TO_WIKI_DOMAIN" ]]; then
-  echo "This script is only ready to migrate default domains currently (something went wrong with domain altering)"
-  exit 1
-fi
 
 # Setup var for Wikibase Cloud access
 CLOUD_KUBECTL="kubectl --context=gke_wikibase-cloud_europe-west3-a_wbaas-2"
@@ -29,7 +24,7 @@ MW_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=mediawiki,app.kuberne
 
 # Load old details from wbstack
 WIKI_DETAILS="$(cat ./$FROM_WIKI_DOMAIN/wbstack.com-details.json)"
-NEW_WIKI_DETAILS_FILE=./$FROM_WIKI_DOMAIN/$NEW_DOMAIN_SUFFIX-details.json
+NEW_WIKI_DETAILS_FILE=./$FROM_WIKI_DOMAIN/$NEW_PLATFORM_FREE_DOMAIN_SUFFIX-details.json
 WIKI_DB_PREFIX=$(cat ./$FROM_WIKI_DOMAIN/wbstack.com-details.json | jq -r '.wiki_db.prefix')
 # Alter the domain
 WIKI_DETAILS=$(echo "$WIKI_DETAILS" | jq ".domain = \"$TO_WIKI_DOMAIN\"")
