@@ -95,6 +95,25 @@ LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
 # TODO run all jobs
 
 # Fill QueryService
+WBS_DOMAIN=wikibasederp.wbaas.localhost
+QS_POD=queryservice-55fcdbcf86-x7db2
+QS_NAMESPACE=qsns_b247111900
+
+## To clear a namespace from things
+## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
+
+CLOUD_KUBECTL="kubectl --context=minikube-wbaas"
+MW_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=mediawiki,app.kubernetes.io/component=app-backend -o jsonpath="{.items[0].metadata.name}")
+kubectl exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$WBS_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/output.ttl"
+
+## TODO Copy between pods instead of to local disk
+kubectl cp "$MW_POD":/tmp/output.ttl /tmp/output.ttl
+kubectl cp /tmp/output.ttl "$QS_POD":/tmp/output.ttl
+
+## in queryservice
+kubectl exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 100000 -w $WBS_DOMAIN
+./loadData.sh -n $QS_NAMESPACE -d /tmp/mungeOut/"
+
 # TODO get the MAX value in the edit_events table on wbstack.com and add ALL of those IDs to the edit_events_table once site is setup
 # OR
 # TODO run a single updater for each wiki migration with all ids
