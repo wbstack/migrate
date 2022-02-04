@@ -64,6 +64,7 @@ WIKI_ID=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.id')
 WIKI_DB=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.name')
 WIKI_DB_USER=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.user')
 WIKI_DB_PASS=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.password')
+WIKI_QS_NAMESPACE=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_queryservice_namespace.namespace')
 
 echo $WIKI_DB
 
@@ -90,6 +91,25 @@ LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
 # TODO run all jobs
 
 # Fill QueryService
+QS_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
+
+## To clear a namespace from things
+## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
+
+$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/output.ttl"
+
+## TODO Copy between pods instead of to local disk
+$CLOUD_KUBECTL cp "$MW_POD":/tmp/output.ttl /tmp/output.ttl
+$CLOUD_KUBECTL cp /tmp/output.ttl "$QS_POD":/tmp/output.ttl
+
+$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output.ttl
+
+## in queryservice
+$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 100000 -w $TO_WIKI_DOMAIN
+./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut/"
+
+$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut/ /tmp/output.ttl
+
 # TODO get the MAX value in the edit_events table on wbstack.com and add ALL of those IDs to the edit_events_table once site is setup
 # OR
 # TODO run a single updater for each wiki migration with all ids
