@@ -13,9 +13,10 @@ WBSTACK_KUBECTL="kubectl --context=gke_wbstack_us-east1-b_cluster-1"
 ####################################
 
 # Get Some pod names
+echo "Collecting k8s pod infomation"
 WBSTACK_API_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
 WBSTACK_SQL_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Running' -l release=sql,component=master -o jsonpath="{.items[0].metadata.name}")
-WBSTACK_MW_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=mediawiki,app.kubernetes.io/component=app-backend -o jsonpath="{.items[0].metadata.name}")
+WBSTACK_MW_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=mediawiki,app.kubernetes.io/component=app-backend -o jsonpath="{.items[0].metadata.name}")
 
 # And the api user details
 DB_API_USER=apiuser
@@ -37,7 +38,7 @@ WIKI_EMAIL=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mys
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
 
 # Empty the job queue
-$WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
+$WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN php w/maintenance/runJobs.php"
 
 # Set wbstack wiki into READONLY mode
 $WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
