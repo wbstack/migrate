@@ -94,19 +94,19 @@ QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.
 ## To clear a namespace from things
 ## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
 
-$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/output.ttl"
+$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/output-$TO_WIKI_DOMAIN.ttl"
 
 ## TODO Copy between pods instead of to local disk
-$CLOUD_KUBECTL cp "$MW_POD":/tmp/output.ttl /tmp/output.ttl
-$CLOUD_KUBECTL cp /tmp/output.ttl "$QS_POD":/tmp/output.ttl
+$CLOUD_KUBECTL cp "$MW_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl /tmp/output-$TO_WIKI_DOMAIN.ttl
+$CLOUD_KUBECTL cp /tmp/output-$TO_WIKI_DOMAIN.ttl "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
 
-$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output.ttl
+$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output-$TO_WIKI_DOMAIN.ttl
 
 ## in queryservice
-$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 100000 -w $TO_WIKI_DOMAIN
-./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut/"
+$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output-$TO_WIKI_DOMAIN.ttl --to /tmp/mungeOut-$TO_WIKI_DOMAIN/wikidump-%09d.ttl.gz --chunkSize 100000 -w $TO_WIKI_DOMAIN
+./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut-$TO_WIKI_DOMAIN/"
 
-$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut/ /tmp/output.ttl
+$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut-$TO_WIKI_DOMAIN/ /tmp/output-$TO_WIKI_DOMAIN.ttl
 
 ## Fill Elastic
 ## Some wbstack.com wikis do not have elastic search enabled yet, so turn it ON for ALL sites
