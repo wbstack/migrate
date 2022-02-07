@@ -118,6 +118,5 @@ $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSea
 $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
 $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
 
-# TODO, for custom domains we need to setup an ingress & coordniate folks moving the domain over
 # TODO adam redirect old domain to new domain (if in control of it)
 # TODO email the person
