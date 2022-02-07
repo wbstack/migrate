@@ -102,21 +102,16 @@ QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.
 
 #$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut/ /tmp/output.ttl
 
-
-# ##################################### EVERYTHING WORKS ABOVE HERE
-
-# Fill Elastic
+## Fill Elastic
+## Some wbstack.com wikis do not have elastic search enabled yet, so turn it ON for ALL sites
 #$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wwExtEnableElasticSearch 1"
 #$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\ElasticSearchIndexInit $WIKI_ID"
-# TODO deploy mediawiki code update so this next command actually runs
+## TODO deploy mediawiki code update so this next command actually runs
 #$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\QueueSearchIndexBatches $WIKI_ID"
-# TODO run all jobs
-
-
-# TODO get the MAX value in the edit_events table on wbstack.com and add ALL of those IDs to the edit_events_table once site is setup
-# OR
-# TODO run a single updater for each wiki migration with all ids
+## Run jobs
+#$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
+#$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
 
 # TODO, for custom domains we need to setup an ingress & coordniate folks moving the domain over
-# TODO adam redirect old domain to new domain (if in control of it
+# TODO adam redirect old domain to new domain (if in control of it)
 # TODO email the person
