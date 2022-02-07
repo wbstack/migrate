@@ -1,6 +1,6 @@
-WIKI_DOMAIN="addshore-alpha.wiki.opencura.com"
+WIKI_DOMAIN=$1
 
-# TODO empty the job queue before grabbing the databases!!!
+echo Getting data for $1
 
 ####################################
 ## Migration process below in sh  ##

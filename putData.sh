@@ -1,9 +1,13 @@
 #!/bin/bash
 set -e
 
+echo Putting data for $1 to wikibase.dev
+
 # Inputs for the script
+# TODO change wikibase.dev for real migration
+# TODO change cluster name for real migration
 NEW_PLATFORM_FREE_DOMAIN_SUFFIX="wikibase.dev"
-FROM_WIKI_DOMAIN="addshore-alpha.wiki.opencura.com"
+FROM_WIKI_DOMAIN=$1
 
 
 # Hardcoded things
