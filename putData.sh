@@ -14,9 +14,9 @@ TO_WIKI_DOMAIN=${FROM_WIKI_DOMAIN/$OLD_DOMAIN_SUFFIX/$NEW_PLATFORM_FREE_DOMAIN_S
 # Setup var for Wikibase Cloud access
 CLOUD_KUBECTL="kubectl --context=gke_wikibase-cloud_europe-west3-a_wbaas-2"
 # Get Some pod names
-API_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
-SQL_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/instance=sql,app.kubernetes.io/component=primary -o jsonpath="{.items[0].metadata.name}")
-MW_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=mediawiki,app.kubernetes.io/component=app-backend -o jsonpath="{.items[0].metadata.name}")
+API_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
+SQL_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/instance=sql,app.kubernetes.io/component=primary -o jsonpath="{.items[0].metadata.name}")
+MW_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=mediawiki,app.kubernetes.io/component=app-backend -o jsonpath="{.items[0].metadata.name}")
 
 ######################
 ## Poke data set    ##
@@ -91,7 +91,7 @@ LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
 # TODO run all jobs
 
 # Fill QueryService
-QS_POD=$($CLOUD_KUBECTL get pods -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
+QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
 
 ## To clear a namespace from things
 ## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'

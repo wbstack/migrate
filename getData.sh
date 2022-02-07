@@ -13,8 +13,8 @@ WBSTACK_KUBECTL="kubectl --context=gke_wbstack_us-east1-b_cluster-1"
 ####################################
 
 # Get Some pod names
-WBSTACK_API_POD=$($WBSTACK_KUBECTL get pods -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
-WBSTACK_SQL_POD=$($WBSTACK_KUBECTL get pods -l release=sql,component=master -o jsonpath="{.items[0].metadata.name}")
+WBSTACK_API_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
+WBSTACK_SQL_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Running' -l release=sql,component=master -o jsonpath="{.items[0].metadata.name}")
 
 # And the api user details
 DB_API_USER=apiuser
