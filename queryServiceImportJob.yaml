@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: load-queryservice-ttl
+spec:
+  template:
+    metadata:
+      name: load-queryservice-ttl
+    spec:
+      initContainers:
+      - name: export-ttl
+        command: ['bash', '-c', 'php /var/www/html/w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /var/dump/triples.ttl']
+        volumeMounts:
+        - name: dump-data
+          mountPath: /var/dump
+      containers:
+      - name: import-ttl
+        command: ['bash', '-c', 'java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /var/dump/triples.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 100000 -w ${WBS_DOMAIN} && ./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut/ -h queryservice.default.svc.cluster.local:9999']
+        volumeMounts:
+        - name: dump-data
+          mountPath: /var/dump
+      restartPolicy: Never
+      volumes:
+      - name: dump-data
+        emptyDir: {}
