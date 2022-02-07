@@ -23,6 +23,7 @@ DB_API_USER=apiuser
 DB_API_PASSWORD=$($WBSTACK_KUBECTL get secrets sql-apiuser --template={{.data.password}} | base64 --decode)
 
 # Get details of the wiki we will be working with (EXTRACTION 1)
+echo "Extracting infomation from the API"
 mkdir $WIKI_DOMAIN
 $WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:get domain $WIKI_DOMAIN" > ./$WIKI_DOMAIN/wbstack.com-details.json
 WIKI_ID=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.id')
@@ -38,23 +39,24 @@ WIKI_EMAIL=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mys
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
 
 # Empty the job queue
+echo "Emptying the job queue"
 $WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN php w/maintenance/runJobs.php"
 
 # Set wbstack wiki into READONLY mode
+echo "Setting wiki into READONLY mode"
 $WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
 
 # Grab the logos (EXTRACTION 2)
-wget -O ./$WIKI_DOMAIN/favicon.ico $WIKI_FAVICON
+echo "Grabbing the logo"
 wget -O ./$WIKI_DOMAIN/logo.png $WIKI_LOGO
 
 # Grab a wiki dump (EXTRACTION 3)
+echo "Grabbing the wiki dump"
 $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysqldump -u$WIKI_DB_USER -p$WIKI_DB_PASS $WIKI_DB > /tmp/$WIKI_DB.sql"
 $WBSTACK_KUBECTL cp $WBSTACK_SQL_POD:/tmp/$WIKI_DB.sql ./$WIKI_DOMAIN/db.sql
 $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "rm /tmp/$WIKI_DB.sql"
 
-# Grab the latest wikibase entitiy ID counters from the wiki (EXTRACTION 4)
-$WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysql -u$WIKI_DB_USER -p$WIKI_DB_PASS $WIKI_DB -N -B -e \"SELECT JSON_OBJECT('id_value',id_value,'id_type',id_type) FROM ${WIKI_DB_PREFIX}_wb_id_counters\"" > ./$WIKI_DOMAIN/ids.jsonl
-# And extract the max wikibase entity IDs we will need to enter...
-MAX_ITEM=$(cat ./$WIKI_DOMAIN/ids.jsonl | jq '. | select(.id_type | contains("wikibase-item")) | .id_value')
-MAX_PROPERTY=$(cat ./$WIKI_DOMAIN/ids.jsonl | jq '. | select(.id_type | contains("wikibase-property")) | .id_value')
-MAX_LEXEME=$(cat ./$WIKI_DOMAIN/ids.jsonl | jq '. | select(.id_type | contains("wikibase-lexeme")) | .id_value')
+echo "Compressing"
+zip -r $WIKI_DOMAIN.zip $WIKI_DOMAIN
+
+echo "Done!"
