@@ -47,8 +47,13 @@ echo "Setting wiki into READONLY mode"
 $WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
 
 # Grab the logos (EXTRACTION 2)
-echo "Grabbing the logo"
-wget -O ./$WIKI_DOMAIN/logo.png $WIKI_LOGO
+if [ "$WIKI_LOGO" == "" ];
+then
+    echo "No logo to grab (skipping)"
+else
+    echo "Grabbing the logo"
+    wget -O ./$WIKI_DOMAIN/logo.png $WIKI_LOGO
+fi
 
 # Grab a wiki dump (EXTRACTION 3)
 echo "Grabbing the wiki dump"
