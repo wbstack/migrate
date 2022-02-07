@@ -52,8 +52,7 @@ WIKI_DETAILS=$(echo "$WIKI_DETAILS" | jq '.settings += [{ "name": "wgReadOnly", 
 echo "$WIKI_DETAILS" > $NEW_WIKI_DETAILS_FILE
 
 # Get Email
-WIKI_EMAIL=$(cat ./$FROM_WIKI_DOMAIN/email.txt)
-
+WIKI_EMAIL=$(head -n1 ./$FROM_WIKI_DOMAIN/email.txt | xargs echo -n)
 ######################
 ## Initial setup    ##
 ######################
