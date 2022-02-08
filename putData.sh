@@ -26,6 +26,7 @@ TO_WIKI_DOMAIN=${FROM_WIKI_DOMAIN/$OLD_DOMAIN_SUFFIX/$NEW_PLATFORM_FREE_DOMAIN_S
 echo "Site   : $NEW_PLATFORM_FREE_DOMAIN_SUFFIX"
 echo "Cluster: $CONTEXT"
 echo "Domain : $FROM_WIKI_DOMAIN => $TO_WIKI_DOMAIN"
+echo ""
 
 # Setup var for Wikibase Cloud access
 echo "Grabbing k8s pod info"
@@ -65,9 +66,9 @@ $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow Migration
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-details.json"
 
 
-# ##################################
-# ## Sending data to the new home ##
-# ##################################
+#######################################
+## Sending core data to the new home ##
+#######################################
 
 # Migrate images
 LOCAL_LOGO_PATH=./$FROM_WIKI_DOMAIN/logo.png
@@ -97,6 +98,9 @@ $CLOUD_KUBECTL cp $LOCAL_SQL_PATH $SQL_POD:/tmp/$TO_WIKI_DOMAIN-db.sql
 $CLOUD_KUBECTL exec -c mariadb -it $SQL_POD -- sh -c "mysql --user=$WIKI_DB_USER --password=$WIKI_DB_PASS $WIKI_DB < /tmp/$TO_WIKI_DOMAIN-db.sql"
 $CLOUD_KUBECTL exec -it $SQL_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-db.sql"
 
+########################################
+## Running update.php & make writable ##
+########################################
 
 # Run update.php to move from 1.35 to 1.37
 echo "Running update.php"
@@ -107,30 +111,25 @@ $CLOUD_KUBECTL exec -it $MW_POD -- sh -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php ./w/mai
 echo "Setting to writeable"
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wgReadOnly"
 
+function run_jobs_in_1000_batches {
+    ## Run jobs
+    JOBS_TO_GO=1
+    # Run in a loop to avoid https://mattermost.wikimedia.de/swe/pl/shgm84oshtbppbm4hu6u6w876r
+    while [ "$JOBS_TO_GO" != "0" ]
+    do
+        echo "Running 1000 jobs"
+        $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php --maxjobs 1000"
+        echo Waiting for 1 seconds...
+        sleep 1
+        JOBS_TO_GO=$($CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/showJobs.php")
+        echo $JOBS_TO_GO jobs to go
+    done
+}
 
-# Fill QueryService
-QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
+#######################################
+## Elastic search                    ##
+#######################################
 
-## To clear a namespace from things
-## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
-
-echo "Dumping ttl"
-$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/output-$TO_WIKI_DOMAIN.ttl"
-
-## TODO Copy between pods instead of to local disk
-$CLOUD_KUBECTL cp "$MW_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl /tmp/output-$TO_WIKI_DOMAIN.ttl
-$CLOUD_KUBECTL cp /tmp/output-$TO_WIKI_DOMAIN.ttl "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
-
-$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output-$TO_WIKI_DOMAIN.ttl
-
-## in queryservice
-echo "Loading ttl into query service"
-$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output-$TO_WIKI_DOMAIN.ttl --to /tmp/mungeOut-$TO_WIKI_DOMAIN/wikidump-%09d.ttl.gz --chunkSize 100000 -w $TO_WIKI_DOMAIN
-./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut-$TO_WIKI_DOMAIN/"
-
-$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut-$TO_WIKI_DOMAIN/ /tmp/output-$TO_WIKI_DOMAIN.ttl
-
-## Fill Elastic
 echo "Creating and scheduling population of Elastic search indexes"
 ## Some wbstack.com wikis do not have elastic search enabled yet, so turn it ON for ALL sites
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wwExtEnableElasticSearch 1"
@@ -138,12 +137,50 @@ $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSea
 ## TODO deploy mediawiki code update so this next command actually runs
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\QueueSearchIndexBatches $WIKI_ID"
 
-## Run jobs
-echo "Running jobs"
-$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
-$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php"
+echo "Running jobs after initial elastic search jobs"
+run_jobs_in_1000_batches
+
+#######################################
+## Query Service                     ##
+#######################################
+
+QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
+
+## To clear a namespace from things (if you need it)
+## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
+
+echo "Dumping ttl"
+mkdir -p /tmp/$TO_WIKI_DOMAIN-ttl
+$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/$TO_WIKI_DOMAIN-ttl/output.ttl"
+
+## TODO Copy between pods instead of to local disk
+# When copying the file directly, kubectl would error with `error: unexpected EOF` for big files
+# Stackoverflow and github suggested trying to copy a directory instead, and that seems to work...
+# https://github.com/kubernetes/kubernetes/issues/60140#issuecomment-836448850
+LOCAL_TTL_DIR_PATH=./$TO_WIKI_DOMAIN/ttl
+LOCAL_TTL_FILE_PATH=./$TO_WIKI_DOMAIN/ttl/output.ttl
+echo "Copying TTL from MW to local"
+$CLOUD_KUBECTL cp "$MW_POD":/tmp/$TO_WIKI_DOMAIN-ttl $LOCAL_TTL_DIR_PATH
+echo "Copying TTL from local to query service"
+$CLOUD_KUBECTL cp $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
+
+echo "Removing TTL from MW"
+$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output-$TO_WIKI_DOMAIN.ttl
+
+## in queryservice
+echo "Loading ttl into query service"
+# Only just a chunk size of 10k so that we don't risk timeouts etc
+$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output-$TO_WIKI_DOMAIN.ttl --to /tmp/mungeOut-$TO_WIKI_DOMAIN/wikidump-%09d.ttl.gz --chunkSize 10000 -w $TO_WIKI_DOMAIN"
+$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut-$TO_WIKI_DOMAIN/"
+
+$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut-$TO_WIKI_DOMAIN/ /tmp/output-$TO_WIKI_DOMAIN.ttl
+
+#######################################
+## Final Jobs                        ##
+#######################################
+
+# Final run of jobs for good measure
+echo "Running jobs again at end of process"
+run_jobs_in_1000_batches
 
 echo "Done!"
-
-# TODO adam redirect old domain to new domain (if in control of it)
-# TODO email the person
