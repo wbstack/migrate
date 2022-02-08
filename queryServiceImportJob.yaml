@@ -15,7 +15,7 @@ spec:
           mountPath: /var/dump
       containers:
       - name: import-ttl
-        command: ['bash', '-c', 'java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /var/dump/triples.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 100000 -w ${WBS_DOMAIN} && ./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut/ -h queryservice.default.svc.cluster.local:9999']
+        command: ['bash', '-c', 'java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /var/dump/triples.ttl --to /tmp/mungeOut/wikidump-%09d.ttl.gz --chunkSize 1 -w ${WBS_DOMAIN} && zcat /tmp/mungeOut/wikidump-*.ttl.gz | curl --silent --show-error -XPOST -H "Content-type:application/x-turtle" --data-binary @- http://queryservice:9999/bigdata/namespace/${WIKI_QS_NAMESPACE}/sparql' ]
         volumeMounts:
         - name: dump-data
           mountPath: /var/dump
