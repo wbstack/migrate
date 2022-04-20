@@ -25,6 +25,14 @@ USER_DOMAINS=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "m
 echo "Domains are: $USER_DOMAINS"
 echo "---------------------------------------"
 
+USER_DOMAINS=$(echo $USER_DOMAINS | tr -d '[:space:]')
+
+# Some users will have no wikis...
+if [ "$USER_DOMAINS" = "NULL" ]; then
+  echo "No domains found for $PLATFORM_EMAIL !!!!!!!!!!"
+  exit 0
+fi
+
 for word in $USER_DOMAINS;
 do
     TRIMMED_WORD=$(echo $word | tr -d '[:space:]')
