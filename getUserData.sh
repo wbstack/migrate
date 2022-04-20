@@ -1,5 +1,11 @@
 PLATFORM_EMAIL=$(echo $1 | tr -d '[:space:]')
 
+# If platform email directory already exists
+if [ -d "./.data/$PLATFORM_EMAIL" ]; then
+    echo "Directory already exists for $PLATFORM_EMAIL"
+    exit 1
+fi
+
 echo Getting data for $PLATFORM_EMAIL
 
 ####################################
