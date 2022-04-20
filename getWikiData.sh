@@ -1,6 +1,7 @@
-WIKI_DOMAIN=$1
+WIKI_DOMAIN=$(echo $1 | tr -d '[:space:]')
+WIKI_EMAIL=$(echo $2 | tr -d '[:space:]')
 
-echo Getting data for $1
+echo Getting data for $WIKI_DOMAIN and $WIKI_EMAIL
 
 ####################################
 ## Migration process below in sh  ##
@@ -35,7 +36,6 @@ WIKI_LOGO=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.settings[] | s
 WIKI_FAVICON=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.settings[] | select(.name == "wgFavicon") | .value')
 
 # And the email owner of the wiki
-WIKI_EMAIL=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysql -u$DB_API_USER -p$DB_API_PASSWORD apidb -N -B -e \"SELECT email FROM wiki_managers, users WHERE wiki_managers.wiki_id = $WIKI_ID AND wiki_managers.user_id = users.id\"")
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
 
 # Empty the job queue
@@ -63,5 +63,10 @@ $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "rm /tmp/$WIKI_DB
 
 echo "Compressing"
 zip -r $WIKI_DOMAIN.zip $WIKI_DOMAIN
+
+echo "And moving to the email directory"
+mkdir -p ./.data/$WIKI_EMAIL
+mv $WIKI_DOMAIN.zip ./.data/$WIKI_EMAIL/
+rm -rf ./$WIKI_DOMAIN
 
 echo "Done!"
