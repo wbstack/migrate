@@ -30,6 +30,8 @@ USER_DOMAINS=$(echo $USER_DOMAINS | tr -d '[:space:]')
 # Some users will have no wikis...
 if [ "$USER_DOMAINS" = "NULL" ]; then
   echo "No domains found for $PLATFORM_EMAIL !!!!!!!!!!"
+  mkdir -p ./.data/$PLATFORM_EMAIL
+  echo "No domains found for this user..." > ./.data/$PLATFORM_EMAIL/NO-DOMAINS.txt
   exit 0
 fi
 
