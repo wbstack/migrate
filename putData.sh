@@ -164,7 +164,7 @@ echo "Copying TTL from local to query service"
 $CLOUD_KUBECTL cp $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
 
 echo "Removing TTL from MW"
-$CLOUD_KUBECTL exec -it "$MW_POD" -- rm -r /tmp/$TO_WIKI_DOMAIN-ttl
+$CLOUD_KUBECTL exec -it "$MW_POD" -- rm -r "/tmp/$TO_WIKI_DOMAIN-ttl"
 
 ## in queryservice
 echo "Loading ttl into query service"
