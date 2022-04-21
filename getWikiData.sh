@@ -1,3 +1,6 @@
+#!/bin/bash
+set -eux
+
 WIKI_DOMAIN=$(echo $1 | tr -d '[:space:]')
 WIKI_EMAIL=$(echo $2 | tr -d '[:space:]')
 
@@ -22,6 +25,10 @@ WBSTACK_MW_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Runnin
 # And the api user details
 DB_API_USER=apiuser
 DB_API_PASSWORD=$($WBSTACK_KUBECTL get secrets sql-apiuser --template={{.data.password}} | base64 --decode)
+
+# Mark it as no read only, incase we already exported it once...
+echo "Resetting to writeable"
+$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly"
 
 # Get details of the wiki we will be working with (EXTRACTION 1)
 echo "Extracting infomation from the API"

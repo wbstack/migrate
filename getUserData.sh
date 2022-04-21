@@ -1,3 +1,6 @@
+#!/bin/bash
+set -eux
+
 PLATFORM_EMAIL=$(echo $1 | tr -d '[:space:]')
 
 # If platform email directory already exists
