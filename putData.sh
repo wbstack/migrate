@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -eux
 
 # Inputs for the script
 FROM_WIKI_DOMAIN=$1
