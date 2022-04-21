@@ -11,3 +11,4 @@ Repository containing code enabling migration from wbstack.com to wikibase.cloud
 1. confirm migration appears to have worked
 1. Enter the date in the Migration finished column
 1. let the team know
+1. Delete your local files containing the data
