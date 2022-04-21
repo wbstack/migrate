@@ -68,6 +68,16 @@ $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysqldump -u$WIK
 $WBSTACK_KUBECTL cp $WBSTACK_SQL_POD:/tmp/$WIKI_DB.sql ./$WIKI_DOMAIN/db.sql
 $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "rm /tmp/$WIKI_DB.sql"
 
+echo "Checking SQL file completness"
+if grep -q -- "-- Dump completed on " ./$WIKI_DOMAIN/db.sql
+then
+    echo "SQL file is complete"
+else
+    echo "SQL file is not complete"
+    echo "You probably want to try again :("
+    exit 1
+fi
+
 echo "Compressing"
 zip -r $WIKI_DOMAIN.zip $WIKI_DOMAIN
 
