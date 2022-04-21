@@ -120,7 +120,7 @@ function run_jobs_in_1000_batches {
         $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/runJobs.php --maxjobs 1000"
         echo Waiting for 1 seconds...
         sleep 1
-        JOBS_TO_GO=$($CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/showJobs.php")
+        JOBS_TO_GO=$($CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/maintenance/showJobs.php" | tr -d '[:space:]')
         echo $JOBS_TO_GO jobs to go
     done
 }
@@ -133,7 +133,7 @@ echo "Creating and scheduling population of Elastic search indexes"
 ## Some wbstack.com wikis do not have elastic search enabled yet, so turn it ON for ALL sites
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wwExtEnableElasticSearch 1"
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\ElasticSearchIndexInit $WIKI_ID"
-## TODO deploy mediawiki code update so this next command actually runs
+# Comment this line out if the wiki is empty
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\QueueSearchIndexBatches $WIKI_ID"
 
 echo "Running jobs after initial elastic search jobs"
@@ -149,7 +149,7 @@ QS_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.
 ## curl 'http://localhost:9999/bigdata/namespace/qsns_b247111900/sparql' -X POST --data-raw 'update=DROP ALL;'
 
 echo "Dumping ttl"
-mkdir -p /tmp/$TO_WIKI_DOMAIN-ttl
+$CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "mkdir -p /tmp/$TO_WIKI_DOMAIN-ttl"
 $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/$TO_WIKI_DOMAIN-ttl/output.ttl"
 
 ## TODO Copy between pods instead of to local disk
@@ -164,7 +164,7 @@ echo "Copying TTL from local to query service"
 $CLOUD_KUBECTL cp $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
 
 echo "Removing TTL from MW"
-$CLOUD_KUBECTL exec -it "$MW_POD" -- rm /tmp/output-$TO_WIKI_DOMAIN.ttl
+$CLOUD_KUBECTL exec -it "$MW_POD" -- rm -r "/tmp/$TO_WIKI_DOMAIN-ttl"
 
 ## in queryservice
 echo "Loading ttl into query service"
