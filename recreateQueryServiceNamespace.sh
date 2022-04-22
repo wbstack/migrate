@@ -44,7 +44,7 @@ $CLOUD_KUBECTL exec $API_POD -- sh -c "$CURL_DELETE_QS"
 
 # Recreate Query Service Namespace
 # https://github.com/wbstack/api/blob/main/app/Jobs/ProvisionQueryserviceNamespaceJob.php#L65
-CURL_CREATE_QS="curl -s --http1.1 --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' --request 'POST' --header 'content-type: text/plain' --data @$REMOTE_RWSTORE_PROPERTIES_FILE --url '${WIKI_QS_BACKEND}/bigdata/namespace'"
+CURL_CREATE_QS="curl -s --http1.1 --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' --request 'POST' --header 'content-type: text/plain' --data-binary @$REMOTE_RWSTORE_PROPERTIES_FILE --url '${WIKI_QS_BACKEND}/bigdata/namespace'"
 
 $CLOUD_KUBECTL cp ./$RWSTORE_PROPERTIES_FILE $API_POD:$REMOTE_RWSTORE_PROPERTIES_FILE
 $CLOUD_KUBECTL exec $API_POD -- sh -c "$CURL_CREATE_QS"
