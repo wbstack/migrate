@@ -1,10 +1,11 @@
 #!/bin/bash
+
+# https://phabricator.wikimedia.org/T306693
+
 set -eux
 
-exit 1 # WIP
-
 # Inputs for the script
-FROM_WIKI_DOMAIN=$1
+TO_WIKI_DOMAIN=$1
 NEW_PLATFORM_FREE_DOMAIN_SUFFIX=$2
 
 case $NEW_PLATFORM_FREE_DOMAIN_SUFFIX in
@@ -45,8 +46,8 @@ $CLOUD_KUBECTL cp $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
 ## in queryservice
 echo "Loading ttl into query service"
 # Only just a chunk size of 10k so that we don't risk timeouts etc
-$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output-$TO_WIKI_DOMAIN.ttl --to /tmp/mungeOut-$TO_WIKI_DOMAIN/wikidump-%09d.ttl.gz --chunkSize 10000 -w $TO_WIKI_DOMAIN"
-$CLOUD_KUBECTL exec -it "$QS_POD" -- bash -c "./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut-$TO_WIKI_DOMAIN/"
+$CLOUD_KUBECTL exec "$QS_POD" -- bash -c "java -cp lib/wikidata-query-tools-*-jar-with-dependencies.jar org.wikidata.query.rdf.tool.Munge --from /tmp/output-$TO_WIKI_DOMAIN.ttl --to /tmp/mungeOut-$TO_WIKI_DOMAIN/wikidump-%09d.ttl.gz --chunkSize 10000 -w $TO_WIKI_DOMAIN -u https://$TO_WIKI_DOMAIN"
+$CLOUD_KUBECTL exec "$QS_POD" -- bash -c "./loadData.sh -n $WIKI_QS_NAMESPACE -d /tmp/mungeOut-$TO_WIKI_DOMAIN/"
 
-$CLOUD_KUBECTL exec -it "$QS_POD" -- rm -rf /tmp/mungeOut-$TO_WIKI_DOMAIN/ /tmp/output-$TO_WIKI_DOMAIN.ttl
+$CLOUD_KUBECTL exec "$QS_POD" -- rm -rf /tmp/mungeOut-$TO_WIKI_DOMAIN/ /tmp/output-$TO_WIKI_DOMAIN.ttl
 
