@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# https://phabricator.wikimedia.org/T306693
+
 set -eux
 
 WIKI_DOMAIN=$1
@@ -18,74 +21,31 @@ case $NEW_PLATFORM_FREE_DOMAIN_SUFFIX in
 esac
 
 DETAILS_FILE=recreateQS-$WIKI_DOMAIN-details.json
+RWSTORE_PROPERTIES_FILE=recreateQS-$WIKI_DOMAIN-post.data
+REMOTE_RWSTORE_PROPERTIES_FILE=/tmp/$RWSTORE_PROPERTIES_FILE
 
 CLOUD_KUBECTL="kubectl --context=$CONTEXT"
 API_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
-QUERYSERVICE_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=queryservice -o jsonpath="{.items[0].metadata.name}")
 
-QUERYSERVICE_URL=$($CLOUD_KUBECTL exec -it $API_POD -- sh -c 'echo ${QUERY_SERVICE_HOST}')
+$CLOUD_KUBECTL exec $API_POD -- sh -c "php artisan wbs-wiki:get domain $WIKI_DOMAIN" > ./$DETAILS_FILE
+$CLOUD_KUBECTL exec $API_POD -- sh -c "cat app/data/RWStore.properties" > ./$RWSTORE_PROPERTIES_FILE
 
-RWSTORE_PROPERTIES=$($CLOUD_KUBECTL exec -it $API_POD -- cat app/data/RWStore.properties)
+WIKI_DETAILS="$(cat ./$DETAILS_FILE)"
+WIKI_QS_BACKEND=$(echo $WIKI_DETAILS | jq -r '.wiki_queryservice_namespace.backend')
+WIKI_QS_NAMESPACE=$(echo $WIKI_DETAILS | jq -r '.wiki_queryservice_namespace.namespace')
 
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:get domain $WIKI_DOMAIN" | tee ./$DETAILS_FILE
-
-
-
-
-
-        # $request->setOptions([
-        #     CURLOPT_URL => $url,
-        #     CURLOPT_RETURNTRANSFER => true,
-        #     CURLOPT_ENCODING => '',
-        #     CURLOPT_TIMEOUT => getenv('CURLOPT_TIMEOUT_DELETE_QUERYSERVICE_NAMESPACE') ?: 100,
-        #     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        #     // User agent is needed by the query service...
-        #     CURLOPT_USERAGENT => 'WBStack DeleteQueryserviceNamespaceJob',
-        #     CURLOPT_CUSTOMREQUEST => 'DELETE',
-        #     CURLOPT_HTTPHEADER => [
-        #         'content-type: text/plain',
-        #     ],
-        # ]);
+sed -i "s/REPLACE_NAMESPACE/${WIKI_QS_NAMESPACE}/" ./$RWSTORE_PROPERTIES_FILE
 
 # Delete Query Service Namespace
-echo curl \
-    --http1.1 \
-    --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' \
-    --request 'DELETE' \
-    --header 'content-type: text/plain' \
-    --url ${QUERYSERVICE_URL}
+# https://github.com/wbstack/api/blob/main/app/Jobs/DeleteQueryserviceNamespaceJob.php#L59
+CURL_DELETE_QS="curl -s --http1.1 --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' --request 'DELETE' --header 'content-type: text/plain' --url '${WIKI_QS_BACKEND}/bigdata/namespace/${WIKI_QS_NAMESPACE}'"
 
-
-
-
-
-
-        #         $request->setOptions([
-        #     // TODO when there are multiple hosts, this will need to be different?
-        #     // OR go through the gateway?
-        #     CURLOPT_URL => $url,
-        #     CURLOPT_RETURNTRANSFER => true,
-        #     CURLOPT_ENCODING => '',
-        #     CURLOPT_TIMEOUT => 10,
-        #     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-        #     // User agent is needed by the query service...
-        #     CURLOPT_USERAGENT => 'WBStack ProvisionQueryserviceNamespaceJob',
-        #     CURLOPT_CUSTOMREQUEST => 'POST',
-        #     CURLOPT_POSTFIELDS => $properties,
-        #     CURLOPT_HTTPHEADER => [
-        #         'content-type: text/plain',
-        #     ],
-        # ]);
+$CLOUD_KUBECTL exec $API_POD -- sh -c "$CURL_DELETE_QS"
 
 # Recreate Query Service Namespace
-echo curl \
-    --http1.1 \
-    --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' \
-    --request 'POST' \
-    --header 'content-type: text/plain' \
-    --url ${QUERYSERVICE_URL}
+# https://github.com/wbstack/api/blob/main/app/Jobs/ProvisionQueryserviceNamespaceJob.php#L65
+CURL_CREATE_QS="curl -s --http1.1 --user-agent 'wikibase.cloud migration recreateQueryServiceNamespace.sh' --request 'POST' --header 'content-type: text/plain' --data @$REMOTE_RWSTORE_PROPERTIES_FILE --url '${WIKI_QS_BACKEND}/bigdata/namespace'"
 
-
-
-
-
+$CLOUD_KUBECTL cp ./$RWSTORE_PROPERTIES_FILE $API_POD:$REMOTE_RWSTORE_PROPERTIES_FILE
+$CLOUD_KUBECTL exec $API_POD -- sh -c "$CURL_CREATE_QS"
+$CLOUD_KUBECTL exec $API_POD -- sh -c "rm $REMOTE_RWSTORE_PROPERTIES_FILE"
