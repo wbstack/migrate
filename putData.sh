@@ -95,7 +95,7 @@ echo "Loading wiki DB data"
 LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
 
 # very rough check to validate the completeness of the SQL dump
-grep -q -- '-- Dump completed' $LOCAL_SQL_PATH
+tail $LOCAL_SQL_PATH | grep -q -- '-- Dump completed' 
 
 $CLOUD_KUBECTL cp $LOCAL_SQL_PATH $SQL_POD:/tmp/$TO_WIKI_DOMAIN-db.sql
 $CLOUD_KUBECTL exec -c mariadb -it $SQL_POD -- sh -c "mysql --user=$WIKI_DB_USER --password=$WIKI_DB_PASS $WIKI_DB < /tmp/$TO_WIKI_DOMAIN-db.sql"
