@@ -94,7 +94,7 @@ echo $WIKI_DB
 echo "Loading wiki DB data"
 LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
 
-# very rough check to validate the completeness of the SQL dump
+# very rough check to validate the completeness of the SQL dump before we upload it
 tail $LOCAL_SQL_PATH | grep -q -- '-- Dump completed' 
 
 $CLOUD_KUBECTL cp $LOCAL_SQL_PATH $SQL_POD:/tmp/$TO_WIKI_DOMAIN-db.sql
