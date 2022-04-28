@@ -35,9 +35,11 @@ for wiki_path in $WIKIS_PATH/*; do
     fi
 
     WIKI=$(basename $wiki_path)
+    LOGFILE=./$(date +%F)-A-$WIKI-to-$TARGET.log
+    
     mv $wiki_path .
 
-    script -c "./putData.sh $WIKI $TARGET" $(date +%F)-A-$WIKI-to-$TARGET.log
+    script -c "./putData.sh $WIKI $TARGET" $LOGFILE
 
     rm -R ./$WIKI
 done
