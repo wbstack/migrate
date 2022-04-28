@@ -31,6 +31,12 @@ echo ""
 # Setup var for Wikibase Cloud access
 echo "Grabbing k8s pod info"
 CLOUD_KUBECTL="kubectl --context=$CONTEXT"
+
+# When copying the file directly, kubectl would error with `error: unexpected EOF` for big files
+# A workaround for this seems to be just retrying, conveniently there is a flag for that.
+# https://github.com/kubernetes/kubernetes/issues/60140
+CLOUD_KUBECTL_COPY="$CLOUD_KUBECTL cp --retries=20"
+
 # Get Some pod names
 API_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/name=api,app.kubernetes.io/component=queue -o jsonpath="{.items[0].metadata.name}")
 SQL_POD=$($CLOUD_KUBECTL get pods --field-selector='status.phase=Running' -l app.kubernetes.io/instance=sql,app.kubernetes.io/component=primary -o jsonpath="{.items[0].metadata.name}")
@@ -60,7 +66,7 @@ WIKI_EMAIL=$(head -n1 ./$FROM_WIKI_DOMAIN/email.txt | xargs echo -n)
 
 # Call the job to create laravel resources & the mediawiki db (empty)
 echo "Running MigrationWikiCreate job"
-$CLOUD_KUBECTL cp $NEW_WIKI_DETAILS_FILE $API_POD:/tmp/$TO_WIKI_DOMAIN-details.json
+$CLOUD_KUBECTL_COPY $NEW_WIKI_DETAILS_FILE $API_POD:/tmp/$TO_WIKI_DOMAIN-details.json
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow MigrationWikiCreate $WIKI_EMAIL /tmp/$TO_WIKI_DOMAIN-details.json"
 $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-details.json"
 
@@ -73,7 +79,7 @@ $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-details.json"
 LOCAL_LOGO_PATH=./$FROM_WIKI_DOMAIN/logo.png
 if test -f "$LOCAL_LOGO_PATH"; then
     echo "Importing logo"
-    $CLOUD_KUBECTL cp $LOCAL_LOGO_PATH $API_POD:/tmp/$TO_WIKI_DOMAIN-logo.png
+    $CLOUD_KUBECTL_COPY $LOCAL_LOGO_PATH $API_POD:/tmp/$TO_WIKI_DOMAIN-logo.png
     $CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow SetWikiLogo domain $TO_WIKI_DOMAIN /tmp/$TO_WIKI_DOMAIN-logo.png"
     $CLOUD_KUBECTL exec -it $API_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-logo.png"
 fi
@@ -82,7 +88,7 @@ fi
 
 echo "Fetching fresh data from new wiki entry"
 mkdir -p ./$TO_WIKI_DOMAIN
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:get domain $TO_WIKI_DOMAIN" > ./$TO_WIKI_DOMAIN/details.json
+$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:get domain $TO_WIKI_DOMAIN" | tee ./$TO_WIKI_DOMAIN/details.json
 WIKI_ID=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.id')
 WIKI_DB=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.name')
 WIKI_DB_USER=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.user')
@@ -93,7 +99,14 @@ echo $WIKI_DB
 
 echo "Loading wiki DB data"
 LOCAL_SQL_PATH=./$FROM_WIKI_DOMAIN/db.sql
-$CLOUD_KUBECTL cp $LOCAL_SQL_PATH $SQL_POD:/tmp/$TO_WIKI_DOMAIN-db.sql
+
+# very rough check to validate the completeness of the SQL dump before we upload it
+tail $LOCAL_SQL_PATH | grep -q -- '-- Dump completed' 
+
+gzip $LOCAL_SQL_PATH
+$CLOUD_KUBECTL_COPY $LOCAL_SQL_PATH.gz $SQL_POD:/tmp/$TO_WIKI_DOMAIN-db.sql.gz
+$CLOUD_KUBECTL exec -it $SQL_POD -- sh -c "gunzip /tmp/$TO_WIKI_DOMAIN-db.sql.gz"
+
 $CLOUD_KUBECTL exec -c mariadb -it $SQL_POD -- sh -c "mysql --user=$WIKI_DB_USER --password=$WIKI_DB_PASS $WIKI_DB < /tmp/$TO_WIKI_DOMAIN-db.sql"
 $CLOUD_KUBECTL exec -it $SQL_POD -- sh -c "rm /tmp/$TO_WIKI_DOMAIN-db.sql"
 
@@ -153,15 +166,12 @@ $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "mkdir -p /tmp/$TO_WIKI_DOMAIN-ttl"
 $CLOUD_KUBECTL exec -it "$MW_POD" -- bash -c "WBS_DOMAIN=$TO_WIKI_DOMAIN php w/extensions/Wikibase/repo/maintenance/dumpRdf.php --output /tmp/$TO_WIKI_DOMAIN-ttl/output.ttl"
 
 ## TODO Copy between pods instead of to local disk
-# When copying the file directly, kubectl would error with `error: unexpected EOF` for big files
-# Stackoverflow and github suggested trying to copy a directory instead, and that seems to work...
-# https://github.com/kubernetes/kubernetes/issues/60140#issuecomment-836448850
 LOCAL_TTL_DIR_PATH=./$TO_WIKI_DOMAIN/ttl
 LOCAL_TTL_FILE_PATH=./$TO_WIKI_DOMAIN/ttl/output.ttl
 echo "Copying TTL from MW to local"
-$CLOUD_KUBECTL cp "$MW_POD":/tmp/$TO_WIKI_DOMAIN-ttl $LOCAL_TTL_DIR_PATH
+$CLOUD_KUBECTL_COPY "$MW_POD":/tmp/$TO_WIKI_DOMAIN-ttl $LOCAL_TTL_DIR_PATH
 echo "Copying TTL from local to query service"
-$CLOUD_KUBECTL cp $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
+$CLOUD_KUBECTL_COPY $LOCAL_TTL_FILE_PATH "$QS_POD":/tmp/output-$TO_WIKI_DOMAIN.ttl
 
 echo "Removing TTL from MW"
 $CLOUD_KUBECTL exec -it "$MW_POD" -- rm -r "/tmp/$TO_WIKI_DOMAIN-ttl"
