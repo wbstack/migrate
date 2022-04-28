@@ -18,6 +18,8 @@ if [[ ! -d "$WIKIS_PATH" ]]; then
 fi
 
 case $TARGET in
+  "wbaas.localhost")
+    ;;
   "wikibase.dev")
     ;;
   "wikibase.cloud")
@@ -39,7 +41,7 @@ for wiki_path in $WIKIS_PATH/*; do
     
     mv $wiki_path .
 
-    script -c "./putData.sh $WIKI $TARGET" $LOGFILE
+    script -e -c "./putData.sh $WIKI $TARGET" $LOGFILE
 
     rm -R ./$WIKI
 done
