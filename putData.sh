@@ -6,6 +6,9 @@ FROM_WIKI_DOMAIN=$1
 NEW_PLATFORM_FREE_DOMAIN_SUFFIX=$2
 
 case $NEW_PLATFORM_FREE_DOMAIN_SUFFIX in
+  "wbaas.localhost")
+    CONTEXT="minikube-wbaas"
+    ;;
   "wikibase.dev")
     CONTEXT="gke_wikibase-cloud_europe-west3-a_wbaas-2"
     ;;
