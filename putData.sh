@@ -88,7 +88,7 @@ fi
 
 echo "Fetching fresh data from new wiki entry"
 mkdir -p ./$TO_WIKI_DOMAIN
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:get domain $TO_WIKI_DOMAIN" > ./$TO_WIKI_DOMAIN/details.json
+$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:get domain $TO_WIKI_DOMAIN" | tee ./$TO_WIKI_DOMAIN/details.json
 WIKI_ID=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.id')
 WIKI_DB=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.name')
 WIKI_DB_USER=$(cat ./$TO_WIKI_DOMAIN/details.json | jq -r '.wiki_db.user')
