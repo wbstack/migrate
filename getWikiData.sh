@@ -45,6 +45,10 @@ WIKI_FAVICON=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.settings[] 
 # And the email owner of the wiki
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
 
+# Fixing any search SQL issues
+#echo "Fixing any search SQL issues"
+#$WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN php w/maintenance/rebuildtextindex.php"
+
 # Empty the job queue
 echo "Emptying the job queue"
 $WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN php w/maintenance/runJobs.php"
