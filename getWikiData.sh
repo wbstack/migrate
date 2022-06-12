@@ -51,7 +51,7 @@ $WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN 
 
 # Set wbstack wiki into READONLY mode
 echo "Setting wiki into READONLY mode"
-$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
+$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki will be shutdown in the next weeks. If you want to be migrated to wikibase.cloud please contact Adam!'"
 
 # Grab the logos (EXTRACTION 2)
 if [ "$WIKI_LOGO" == "" ];
