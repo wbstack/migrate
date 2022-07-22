@@ -142,15 +142,15 @@ function run_jobs_in_1000_batches {
 ## Elastic search                    ##
 #######################################
 
-echo "Creating and scheduling population of Elastic search indexes"
+#echo "Creating and scheduling population of Elastic search indexes"
 ## Some wbstack.com wikis do not have elastic search enabled yet, so turn it ON for ALL sites
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wwExtEnableElasticSearch 1"
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\ElasticSearchIndexInit $WIKI_ID"
-# Comment this line out if the wiki is empty
-$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\QueueSearchIndexBatches $WIKI_ID"
+#$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $TO_WIKI_DOMAIN wwExtEnableElasticSearch 1"
+#$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\ElasticSearchIndexInit $WIKI_ID"
+## Comment this line out if the wiki is empty
+#$CLOUD_KUBECTL exec -it $API_POD -- sh -c "php artisan job:dispatchNow CirrusSearch\\\\QueueSearchIndexBatches $WIKI_ID"
 
-echo "Running jobs after initial elastic search jobs"
-run_jobs_in_1000_batches
+#echo "Running jobs after initial elastic search jobs"
+#run_jobs_in_1000_batches
 
 #######################################
 ## Query Service                     ##
