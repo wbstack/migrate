@@ -13,11 +13,19 @@ Repository containing code enabling migration from wbstack.com to wikibase.cloud
 $ ./putData.sh potato.wiki.opencura.com wikibase.cloud
 ```
 
-6. Confirm migration appears to have worked by opening the following links on your browser.
+6. Remove the triple dump date from the queryservice using the following script
+ [queryservice-delete-dump-timestamp-in-namespace](https://github.com/wmde/wbaas-deploy/blob/main/bin/queryservice-delete-dump-timestamp-in-namespaces) from the wbaas-deploy repo.
+This is so that the queryservice updater does not use the triple dump date created during migration.
+   1. Create a file containing the wiki namespace, say `namespace.txt`.
+      In the api backend application run `Wiki::where(['domain' => '<my-domain-here>'])->first()->wikiQueryserviceNamespace;` to get the wiki namespace.
+   2. Forward the query service port to the host machine
+      `kubectl port-forward deployment/queryservice 9999:9999`.
+   3. Run the `queryservice-delete-dump-timestamp-in-namespace` script and pass `namespace.txt` as an argument.
+7. Confirm migration appears to have worked by opening the following links on your browser.
     1. Check that the migrated wiki [potato.wikibase.cloud](potato.wikibase.cloud) works. 
     2. Check that Query Service works.
     3. Check that Cradle works.
     4. Check that QuickStatement works.
-7. Enter the date in the Migration finished column
-8. Let the team know
-9. Delete your local files containing the data
+8. Enter the date in the Migration finished column
+9. Let the team know
+10. Delete your local files containing the data
