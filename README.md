@@ -1,5 +1,7 @@
 # migrate
 
+> :warning: This repository is deprecated. The Wikibase.Cloud team used it to migrate users from wbstack.com to wikibase.cloud between 2022-2023. This code shouldn't be used anymore - it's archived as a reference to what was done and how.
+
 Repository containing code enabling migration from wbstack.com to wikibase.cloud
 
 ## Simple steps to follow
