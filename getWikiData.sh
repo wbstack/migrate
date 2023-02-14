@@ -1,6 +1,10 @@
-WIKI_DOMAIN=$1
+#!/bin/bash
+set -eux
 
-echo Getting data for $1
+WIKI_DOMAIN=$(echo $1 | tr -d '[:space:]')
+WIKI_EMAIL=$(echo $2 | tr -d '[:space:]')
+
+echo Getting data for $WIKI_DOMAIN and $WIKI_EMAIL
 
 ####################################
 ## Migration process below in sh  ##
@@ -22,6 +26,10 @@ WBSTACK_MW_POD=$($WBSTACK_KUBECTL get pods --field-selector='status.phase=Runnin
 DB_API_USER=apiuser
 DB_API_PASSWORD=$($WBSTACK_KUBECTL get secrets sql-apiuser --template={{.data.password}} | base64 --decode)
 
+# Mark it as no read only, incase we already exported it once...
+echo "Resetting to writeable"
+$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly"
+
 # Get details of the wiki we will be working with (EXTRACTION 1)
 echo "Extracting infomation from the API"
 mkdir $WIKI_DOMAIN
@@ -35,8 +43,11 @@ WIKI_LOGO=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.settings[] | s
 WIKI_FAVICON=$(cat ./$WIKI_DOMAIN/wbstack.com-details.json | jq -r '.settings[] | select(.name == "wgFavicon") | .value')
 
 # And the email owner of the wiki
-WIKI_EMAIL=$($WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysql -u$DB_API_USER -p$DB_API_PASSWORD apidb -N -B -e \"SELECT email FROM wiki_managers, users WHERE wiki_managers.wiki_id = $WIKI_ID AND wiki_managers.user_id = users.id\"")
 echo "$WIKI_EMAIL" > ./$WIKI_DOMAIN/email.txt
+
+# Fixing any search SQL issues
+#echo "Fixing any search SQL issues"
+#$WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN php w/maintenance/rebuildtextindex.php"
 
 # Empty the job queue
 echo "Emptying the job queue"
@@ -44,7 +55,7 @@ $WBSTACK_KUBECTL exec -it "$WBSTACK_MW_POD" -- bash -c "WBS_DOMAIN=$WIKI_DOMAIN 
 
 # Set wbstack wiki into READONLY mode
 echo "Setting wiki into READONLY mode"
-$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki is currently being migrated to wikibase.cloud'"
+$WBSTACK_KUBECTL exec -it $WBSTACK_API_POD -- sh -c "php artisan wbs-wiki:setSetting domain $WIKI_DOMAIN wgReadOnly 'This wiki will be shutdown in the next weeks. If you want to be migrated to wikibase.cloud please contact Adam!'"
 
 # Grab the logos (EXTRACTION 2)
 if [ "$WIKI_LOGO" == "" ];
@@ -61,7 +72,22 @@ $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "mysqldump -u$WIK
 $WBSTACK_KUBECTL cp $WBSTACK_SQL_POD:/tmp/$WIKI_DB.sql ./$WIKI_DOMAIN/db.sql
 $WBSTACK_KUBECTL exec -c mariadb -it $WBSTACK_SQL_POD -- sh -c "rm /tmp/$WIKI_DB.sql"
 
+echo "Checking SQL file completness"
+if grep -q -- "-- Dump completed on " ./$WIKI_DOMAIN/db.sql
+then
+    echo "SQL file is complete"
+else
+    echo "SQL file is not complete"
+    echo "You probably want to try again :("
+    exit 1
+fi
+
 echo "Compressing"
 zip -r $WIKI_DOMAIN.zip $WIKI_DOMAIN
+
+echo "And moving to the email directory"
+mkdir -p ./.data/$WIKI_EMAIL
+mv $WIKI_DOMAIN.zip ./.data/$WIKI_EMAIL/
+rm -rf ./$WIKI_DOMAIN
 
 echo "Done!"
